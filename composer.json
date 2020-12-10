@@ -1,0 +1,27 @@
+{
+    "name": "sevming/support",
+    "type": "library",
+    "description": "",
+    "keywords": [],
+    "homepage": "https://github.com/sevming",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "sevming",
+            "email": "sevming@foxmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.0.0",
+        "monolog/monolog": "^1.23",
+        "guzzlehttp/guzzle": "^6.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Sevming\\Support\\": "src/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
