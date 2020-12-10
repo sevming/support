@@ -2,15 +2,19 @@
 
 namespace Sevming\Support;
 
-use ArrayAccess;
-use Countable;
-use JsonSerializable;
-use Serializable;
+use \Countable;
+use \ArrayAccess;
+use \Traversable;
+use \ArrayIterator;
+use \JsonSerializable;
+use \IteratorAggregate;
+use \Serializable;
+use Sevming\Support\Contracts\{Arrayable, Jsonable};
 
 /**
- * Collection From Illuminate\Support\Collection
+ * Collection helper from Illuminate\Support\Collection.
  */
-class Collection implements ArrayAccess, Countable, JsonSerializable, Serializable
+class Collection implements ArrayAccess, Arrayable, Countable, IteratorAggregate, Jsonable, JsonSerializable, Serializable
 {
     /**
      * The items contained in the collection.
@@ -20,13 +24,27 @@ class Collection implements ArrayAccess, Countable, JsonSerializable, Serializab
     protected $items = [];
 
     /**
-     * Collection constructor.
+     * Create a new collection.
      *
-     * @param $items
+     * @param mixed $items
+     *
+     * @return void
      */
-    public function __construct($items)
+    public function __construct($items = [])
     {
-        $this->items = $items;
+        $this->items = $this->getArrayableItems($items);
+    }
+
+    /**
+     * Create a new collection instance if the value isn't one already.
+     *
+     * @param mixed $items
+     *
+     * @return static
+     */
+    public static function make($items = [])
+    {
+        return new static($items);
     }
 
     /**
@@ -40,21 +58,123 @@ class Collection implements ArrayAccess, Countable, JsonSerializable, Serializab
     }
 
     /**
-     * Determine if an item exists in the collection by key.
+     * Get all items except for those with the specified keys.
+     *
+     * @param Collection|mixed $keys
+     *
+     * @return static
+     */
+    public function except($keys)
+    {
+        if ($keys instanceof self) {
+            $keys = $keys->all();
+        } elseif (!is_array($keys)) {
+            $keys = func_get_args();
+        }
+
+        return new static(Arr::except($this->items, $keys));
+    }
+
+    /**
+     * Get the items with the specified keys.
+     *
+     * @param mixed $keys
+     *
+     * @return static
+     */
+    public function only($keys)
+    {
+        if (is_null($keys)) {
+            return new static($this->items);
+        }
+
+        $keys = is_array($keys) ? $keys : func_get_args();
+
+        return new static(Arr::only($this->items, $keys));
+    }
+
+    /**
+     * Remove an item from the collection by key.
      *
      * @param string|array $keys
      *
+     * @return $this
+     */
+    public function forget($keys)
+    {
+        Arr::forget($this->items, $keys);
+        return new static($this->items);
+    }
+
+    /**
+     * Merge the collection with the given items.
+     *
+     * @param mixed $items
+     *
+     * @return static
+     */
+    public function merge($items)
+    {
+        return new static(array_merge($this->items, $this->getArrayableItems($items)));
+    }
+
+    /**
+     * Get the first item from the collection passing the given truth test.
+     *
+     * @param callable|null $callback
+     * @param mixed         $default
+     *
+     * @return mixed
+     */
+    public function first(callable $callback = null, $default = null)
+    {
+        return Arr::first($this->items, $callback, $default);
+    }
+
+    /**
+     * Get the last item from the collection.
+     *
+     * @param callable|null $callback
+     * @param mixed         $default
+     *
+     * @return mixed
+     */
+    public function last(callable $callback = null, $default = null)
+    {
+        return Arr::last($this->items, $callback, $default);
+    }
+
+    /**
+     * Determine if an item exists in the collection by key.
+     *
+     * @param mixed $key
+     *
      * @return bool
      */
-    public function has($keys)
+    public function has($key)
     {
+        $keys = is_array($key) ? $key : func_get_args();
         return Arr::has($this->items, $keys);
+    }
+
+    /**
+     * Set an item to the collection.
+     *
+     * @param string $key
+     * @param mixed  $value
+     *
+     * @return $this
+     */
+    public function set($key, $value)
+    {
+        Arr::set($this->items, $key, $value);
+        return $this;
     }
 
     /**
      * Get an item from the collection by key.
      *
-     * @param string $key
+     * @param mixed $key
      * @param mixed $default
      *
      * @return mixed
@@ -65,115 +185,98 @@ class Collection implements ArrayAccess, Countable, JsonSerializable, Serializab
     }
 
     /**
-     * Set an item in the collection by key.
-     *
-     * @param string $key
-     * @param mixed $value
-     */
-    public function set($key, $value)
-    {
-        Arr::set($this->items, $key, $value);
-    }
-
-    /**
-     * Remove an item from the collection by key.
-     *
-     * @param string|array $keys
-     */
-    public function forget($keys)
-    {
-        Arr::forget($this->items, $keys);
-    }
-
-    /**
-     * Return specific items.
-     *
-     * @param array|string $keys
-     *
-     * @return array
-     */
-    public function only($keys)
-    {
-        return Arr::only($this->items, $keys);
-    }
-
-    /**
-     * Get all items except for those with the specified keys.
-     *
-     * @param string|array $keys
-     *
-     * @return array
-     */
-    public function except($keys)
-    {
-        return Arr::except($this->items, $keys);
-    }
-
-    /**
-     * @inheritdoc
-     *
-     * @param mixed $offset
+     * Determine if the collection is empty or not.
      *
      * @return bool
      */
-    public function offsetExists($offset)
+    public function isEmpty()
     {
-        return $this->has($offset);
+        return empty($this->items);
     }
 
     /**
-     * @inheritdoc
+     * Determine if the collection is not empty.
      *
-     * @param mixed $offset
+     * @return bool
      */
-    public function offsetGet($offset)
+    public function isNotEmpty()
     {
-        return $this->get($offset);
+        return !$this->isEmpty();
     }
 
     /**
-     * @inheritdoc
+     * "Paginate" the collection by slicing it into a smaller collection.
      *
-     * @param mixed $offset
-     * @param mixed $value
+     * @param int $page
+     * @param int $perPage
+     *
+     * @return static
      */
-    public function offsetSet($offset, $value)
+    public function forPage($page, $perPage)
     {
-        $this->set($offset, $value);
+        $offset = max(0, ($page - 1) * $perPage);
+        return $this->slice($offset, $perPage);
     }
 
     /**
-     * Unset the item at a given offset.
+     * Slice the underlying collection array.
      *
-     * @param string $offset
+     * @param int $offset
+     * @param int $length
+     *
+     * @return static
      */
-    public function offsetUnset($offset)
+    public function slice($offset, $length = null)
     {
-        $this->forget($offset);
+        return new static(array_slice($this->items, $offset, $length, true));
     }
 
     /**
-     * @inheritdoc
+     * Convert the object into something JSON serializable.
      *
-     * @return int
-     */
-    public function count()
-    {
-        return count($this->items);
-    }
-
-    /**
-     * @inheritdoc
-     *
-     * @return mixed
+     * @return array
      */
     public function jsonSerialize()
     {
-        return $this->items;
+        return array_map(function ($value) {
+            if ($value instanceof JsonSerializable) {
+                return $value->jsonSerialize();
+            } elseif ($value instanceof Jsonable) {
+                return json_decode($value->toJson(), true);
+            } elseif ($value instanceof Arrayable) {
+                return $value->toArray();
+            }
+
+            return $value;
+        }, $this->items);
     }
 
     /**
-     * @inheritdoc
+     * Get the collection of items as JSON.
+     *
+     * @param int $options
+     *
+     * @return string
+     */
+    public function toJson($options = 0)
+    {
+        return json_encode($this->jsonSerialize(), $options);
+    }
+
+    /**
+     * Get the collection of items as a plain array.
+     *
+     * @return array
+     */
+    public function toArray()
+    {
+        return array_map(function ($value) {
+            return $value instanceof Arrayable ? $value->toArray() : $value;
+        }, $this->items);
+    }
+
+    /**
+     * Generates a storable representation of a value
      *
      * @return string
      */
@@ -183,12 +286,164 @@ class Collection implements ArrayAccess, Countable, JsonSerializable, Serializab
     }
 
     /**
-     * @inheritdoc
+     * Creates a PHP value from a stored representation
      *
      * @param string $serialized
+     *
+     * @return $this
      */
     public function unserialize($serialized)
     {
         return $this->items = unserialize($serialized);
+    }
+
+    /**
+     * Get an iterator for the items.
+     *
+     * @return ArrayIterator
+     */
+    public function getIterator()
+    {
+        return new ArrayIterator($this->items);
+    }
+
+    /**
+     * Count the number of items in the collection.
+     *
+     * @return int
+     */
+    public function count()
+    {
+        return count($this->items);
+    }
+
+    /**
+     * Determine if an item exists at an offset.
+     *
+     * @param mixed $key
+     *
+     * @return bool
+     */
+    public function offsetExists($key)
+    {
+        return $this->has($key);
+    }
+
+    /**
+     * Get an item at a given offset.
+     *
+     * @param mixed $key
+     *
+     * @return mixed
+     */
+    public function offsetGet($key)
+    {
+        return $this->get($key);
+    }
+
+    /**
+     * Set the item at a given offset.
+     *
+     * @param mixed $key
+     * @param mixed $value
+     */
+    public function offsetSet($key, $value)
+    {
+        $this->set($key, $value);
+    }
+
+    /**
+     * Unset the item at a given offset.
+     *
+     * @param string $key
+     *
+     * @return void
+     */
+    public function offsetUnset($key)
+    {
+        if ($this->has($key)) {
+            $this->forget($key);
+        }
+    }
+
+    /**
+     * Convert the collection to its string representation.
+     *
+     * @return string
+     */
+    public function __toString()
+    {
+        return $this->toJson();
+    }
+
+    /**
+     * Get a data by key.
+     *
+     * @param string $key
+     *
+     * @return mixed
+     */
+    public function __get($key)
+    {
+        return $this->get($key);
+    }
+
+    /**
+     * Assigns a value to the specified data.
+     *
+     * @param $key
+     * @param $value
+     */
+    public function __set($key, $value)
+    {
+        $this->set($key, $value);
+    }
+
+    /**
+     * Whether or not an data exists by key.
+     *
+     * @param string $key
+     *
+     * @return bool
+     */
+    public function __isset($key)
+    {
+        return $this->has($key);
+    }
+
+    /**
+     * Unset an data by key.
+     *
+     * @param string $key
+     */
+    public function __unset($key)
+    {
+        $this->forget($key);
+    }
+
+    /**
+     * Results array of items from Collection or Arrayable.
+     *
+     * @param mixed $items
+     *
+     * @return array
+     */
+    protected function getArrayableItems($items)
+    {
+        if (is_array($items)) {
+            return $items;
+        } elseif ($items instanceof self) {
+            return $items->all();
+        } elseif ($items instanceof Arrayable) {
+            return $items->toArray();
+        } elseif ($items instanceof Jsonable) {
+            return json_decode($items->toJson(), true);
+        } elseif ($items instanceof JsonSerializable) {
+            return (array)$items->jsonSerialize();
+        } elseif ($items instanceof Traversable) {
+            return iterator_to_array($items);
+        }
+
+        return (array)$items;
     }
 }

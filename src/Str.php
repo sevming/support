@@ -2,11 +2,21 @@
 
 namespace Sevming\Support;
 
+use \Exception;
+use \RuntimeException;
+
 /**
- * Str From Illuminate\Support\Str
+ * Str helper from Illuminate\Support\Str.
  */
 class Str
 {
+    /**
+     * The cache of snake-cased words.
+     *
+     * @var array
+     */
+    protected static $snakeCache = [];
+
     /**
      * The cache of camel-cased words.
      *
@@ -22,142 +32,38 @@ class Str
     protected static $studlyCache = [];
 
     /**
-     * The cache of snake-cased words.
+     * Return the remainder of a string after a given value.
      *
-     * @var array
-     */
-    protected static $snakeCache = [];
-
-    /**
-     * Convert a value to camel case.
-     *
-     * @param string $value
+     * @param string $subject
+     * @param string $search
      *
      * @return string
      */
-    public static function camel($value)
+    public static function after(string $subject, string $search)
     {
-        if (isset(static::$camelCache[$value])) {
-            return static::$camelCache[$value];
+        return $search === '' ? $subject : array_reverse(explode($search, $subject, 2))[0];
+    }
+
+    /**
+     * Transliterate a UTF-8 value to ASCII.
+     *
+     * @param string $value
+     * @param string $language
+     *
+     * @return string
+     */
+    public static function ascii(string $value, string $language = 'en')
+    {
+        $languageSpecific = static::languageSpecificCharsArray($language);
+        if (!is_null($languageSpecific)) {
+            $value = str_replace($languageSpecific[0], $languageSpecific[1], $value);
         }
 
-        return static::$camelCache[$value] = lcfirst(static::studly($value));
-    }
-
-    /**
-     * Convert a value to studly caps case.
-     *
-     * @param string $value
-     *
-     * @return string
-     */
-    public static function studly($value)
-    {
-        $key = $value;
-        if (isset(static::$studlyCache[$key])) {
-            return static::$studlyCache[$key];
+        foreach (static::charsArray() as $key => $val) {
+            $value = str_replace($val, $key, $value);
         }
 
-        $value = ucwords(str_replace(['-', '_'], ' ', $value));
-
-        return static::$studlyCache[$key] = str_replace(' ', '', $value);
-    }
-
-    /**
-     * Convert a string to kebab case.
-     *
-     * @param string $value
-     *
-     * @return string
-     */
-    public static function kebab($value)
-    {
-        return static::snake($value, '-');
-    }
-
-    /**
-     * Convert a string to snake case.
-     *
-     * @param string $value
-     * @param string $delimiter
-     *
-     * @return string
-     */
-    public static function snake($value, $delimiter = '_')
-    {
-        $key = $value;
-        if (isset(static::$snakeCache[$key][$delimiter])) {
-            return static::$snakeCache[$key][$delimiter];
-        }
-
-        if (!ctype_lower($value)) {
-            $value = preg_replace('/\s+/u', '', ucwords($value));
-            $value = static::lower(preg_replace('/(.)(?=[A-Z])/u', '$1' . $delimiter, $value));
-        }
-
-        return static::$snakeCache[$key][$delimiter] = $value;
-    }
-
-    /**
-     * Convert the given string to upper-case.
-     *
-     * @param string $value
-     *
-     * @return string
-     */
-    public static function upper($value)
-    {
-        return mb_strtoupper($value, 'UTF-8');
-    }
-
-    /**
-     * Convert the given string to lower-case.
-     *
-     * @param string $value
-     *
-     * @return string
-     */
-    public static function lower($value)
-    {
-        return mb_strtolower($value, 'UTF-8');
-    }
-
-    /**
-     * Convert the given string to title case.
-     *
-     * @param string $value
-     *
-     * @return string
-     */
-    public static function title($value)
-    {
-        return mb_convert_case($value, MB_CASE_TITLE, 'UTF-8');
-    }
-
-    /**
-     * Make a string's first character uppercase.
-     *
-     * @param string $string
-     *
-     * @return string
-     */
-    public static function ucfirst($string)
-    {
-        return static::upper(static::substr($string, 0, 1)) . static::substr($string, 1);
-    }
-
-    /**
-     * Returns the portion of string specified by the start and length parameters.
-     *
-     * @param string $string
-     * @param int $start
-     * @param int|null $length
-     *
-     * @return string
-     */
-    public static function substr($string, $start, $length = null)
-    {
-        return mb_substr($string, $start, $length, 'UTF-8');
+        return preg_replace('/[^\x20-\x7E]/u', '', $value);
     }
 
     /**
@@ -168,33 +74,36 @@ class Str
      *
      * @return string
      */
-    public static function before($subject, $search)
+    public static function before(string $subject, string $search)
     {
         return $search === '' ? $subject : explode($search, $subject)[0];
     }
 
     /**
-     * Return the remainder of a string after a given value.
+     * Convert a value to camel case.
      *
-     * @param string $subject
-     * @param string $search
+     * @param string $value
      *
      * @return string
      */
-    public static function after($subject, $search)
+    public static function camel(string $value)
     {
-        return $search === '' ? $subject : array_reverse(explode($search, $subject, 2))[0];
+        if (isset(static::$camelCache[$value])) {
+            return static::$camelCache[$value];
+        }
+
+        return static::$camelCache[$value] = lcfirst(static::studly($value));
     }
 
     /**
      * Determine if a given string contains a given substring.
      *
-     * @param string $haystack
+     * @param string       $haystack
      * @param string|array $needles
      *
      * @return bool
      */
-    public static function contains($haystack, $needles)
+    public static function contains(string $haystack, $needles)
     {
         foreach ((array)$needles as $needle) {
             if ($needle !== '' && mb_strpos($haystack, $needle) !== false) {
@@ -206,33 +115,33 @@ class Str
     }
 
     /**
-     * Determine if a given string starts with a given substring.
+     * Determine if a given string contains all array values.
      *
      * @param string $haystack
-     * @param string|array $needles
+     * @param array  $needles
      *
      * @return bool
      */
-    public static function startsWith($haystack, $needles)
+    public static function containsAll(string $haystack, array $needles)
     {
-        foreach ((array)$needles as $needle) {
-            if ($needle !== '' && substr($haystack, 0, strlen($needle)) === (string)$needle) {
-                return true;
+        foreach ($needles as $needle) {
+            if (!static::contains($haystack, $needle)) {
+                return false;
             }
         }
 
-        return false;
+        return true;
     }
 
     /**
      * Determine if a given string ends with a given substring.
      *
-     * @param string $haystack
+     * @param string       $haystack
      * @param string|array $needles
      *
      * @return bool
      */
-    public static function endsWith($haystack, $needles)
+    public static function endsWith(string $haystack, $needles)
     {
         foreach ((array)$needles as $needle) {
             if (substr($haystack, -strlen($needle)) === (string)$needle) {
@@ -244,95 +153,6 @@ class Str
     }
 
     /**
-     * Return the length of the given string.
-     *
-     * @param string $value
-     * @param string $encoding
-     *
-     * @return int
-     */
-    public static function length($value, $encoding = null)
-    {
-        if ($encoding) {
-            return mb_strlen($value, $encoding);
-        }
-
-        return mb_strlen($value);
-    }
-
-    /**
-     * Limit the number of characters in a string.
-     *
-     * @param string $value
-     * @param int $limit
-     * @param string $end
-     *
-     * @return string
-     */
-    public static function limit($value, $limit = 100, $end = '...')
-    {
-        if (mb_strwidth($value, 'UTF-8') <= $limit) {
-            return $value;
-        }
-
-        return rtrim(mb_strimwidth($value, 0, $limit, '', 'UTF-8')) . $end;
-    }
-
-    /**
-     * Limit the number of words in a string.
-     *
-     * @param string $value
-     * @param int $words
-     * @param string $end
-     *
-     * @return string
-     */
-    public static function words($value, $words = 100, $end = '...')
-    {
-        preg_match('/^\s*+(?:\S++\s*+){1,' . $words . '}/u', $value, $matches);
-        if (!isset($matches[0]) || static::length($value) === static::length($matches[0])) {
-            return $value;
-        }
-
-        return rtrim($matches[0]) . $end;
-    }
-
-    /**
-     * Generate a more truly "random" alpha-numeric string.
-     *
-     * @param int $length
-     *
-     * @return string
-     *
-     * @throws \Exception
-     */
-    public static function random($length = 16)
-    {
-        $string = '';
-        while (($len = strlen($string)) < $length) {
-            $size = $length - $len;
-            $bytes = random_bytes($size);
-            $string .= substr(str_replace(['/', '+', '='], '', base64_encode($bytes)), 0, $size);
-        }
-
-        return $string;
-    }
-
-    /**
-     * Begin a string with a single instance of a given value.
-     *
-     * @param string $value
-     * @param string $prefix
-     *
-     * @return string
-     */
-    public static function start($value, $prefix)
-    {
-        $quoted = preg_quote($prefix, '/');
-        return $prefix . preg_replace('/^(?:' . $quoted . ')+/u', '', $value);
-    }
-
-    /**
      * Cap a string with a single instance of a given value.
      *
      * @param string $value
@@ -340,83 +160,23 @@ class Str
      *
      * @return string
      */
-    public static function finish($value, $cap)
+    public static function finish(string $value, string $cap)
     {
         $quoted = preg_quote($cap, '/');
         return preg_replace('/(?:' . $quoted . ')+$/u', '', $value) . $cap;
     }
 
     /**
-     * Replace a given value in the string sequentially with an array.
-     *
-     * @param string $search
-     * @param array $replace
-     * @param string $subject
-     *
-     * @return string
-     */
-    public static function replaceArray($search, array $replace, $subject)
-    {
-        foreach ($replace as $value) {
-            $subject = static::replaceFirst($search, $value, $subject);
-        }
-
-        return $subject;
-    }
-
-    /**
-     * Replace the first occurrence of a given value in the string.
-     *
-     * @param string $search
-     * @param string $replace
-     * @param string $subject
-     *
-     * @return string
-     */
-    public static function replaceFirst($search, $replace, $subject)
-    {
-        if ($search == '') {
-            return $subject;
-        }
-
-        $position = strpos($subject, $search);
-        if ($position !== false) {
-            return substr_replace($subject, $replace, $position, strlen($search));
-        }
-
-        return $subject;
-    }
-
-    /**
-     * Replace the last occurrence of a given value in the string.
-     *
-     * @param string $search
-     * @param string $replace
-     * @param string $subject
-     *
-     * @return string
-     */
-    public static function replaceLast($search, $replace, $subject)
-    {
-        $position = strrpos($subject, $search);
-        if ($position !== false) {
-            return substr_replace($subject, $replace, $position, strlen($search));
-        }
-
-        return $subject;
-    }
-
-    /**
      * Determine if a given string matches a given pattern.
      *
      * @param string|array $pattern
-     * @param string $value
+     * @param string       $value
      *
      * @return bool
      */
-    public static function is($pattern, $value)
+    public static function is($pattern, string $value)
     {
-        $patterns = is_array($pattern) ? $pattern : (array)$pattern;
+        $patterns = Arr::wrap($pattern);
         if (empty($patterns)) {
             return false;
         }
@@ -445,37 +205,274 @@ class Str
     }
 
     /**
+     * Convert a string to kebab case.
+     *
+     * @param string $value
+     *
+     * @return string
+     */
+    public static function kebab(string $value)
+    {
+        return static::snake($value, '-');
+    }
+
+    /**
+     * Return the length of the given string.
+     *
+     * @param string $value
+     * @param string $encoding
+     *
+     * @return int
+     */
+    public static function length(string $value, string $encoding = null)
+    {
+        if ($encoding) {
+            return mb_strlen($value, $encoding);
+        }
+
+        return mb_strlen($value);
+    }
+
+    /**
+     * Limit the number of characters in a string.
+     *
+     * @param string $value
+     * @param int    $limit
+     * @param string $end
+     *
+     * @return string
+     */
+    public static function limit(string $value, int $limit = 100, string $end = '...')
+    {
+        if (mb_strwidth($value, 'UTF-8') <= $limit) {
+            return $value;
+        }
+
+        return rtrim(mb_strimwidth($value, 0, $limit, '', 'UTF-8')) . $end;
+    }
+
+    /**
+     * Convert the given string to lower-case.
+     *
+     * @param string $value
+     *
+     * @return string
+     */
+    public static function lower(string $value)
+    {
+        return mb_strtolower($value, 'UTF-8');
+    }
+
+    /**
+     * Limit the number of words in a string.
+     *
+     * @param string $value
+     * @param int    $words
+     * @param string $end
+     *
+     * @return string
+     */
+    public static function words(string $value, int $words = 100, string $end = '...')
+    {
+        preg_match('/^\s*+(?:\S++\s*+){1,' . $words . '}/u', $value, $matches);
+        if (!isset($matches[0]) || static::length($value) === static::length($matches[0])) {
+            return $value;
+        }
+
+        return rtrim($matches[0]) . $end;
+    }
+
+    /**
      * Parse a Class@method style callback into class and method.
      *
-     * @param string $callback
+     * @param string      $callback
      * @param string|null $default
      *
      * @return array
      */
-    public static function parseCallback($callback, $default = null)
+    public static function parseCallback(string $callback, string $default = null)
     {
         return static::contains($callback, '@') ? explode('@', $callback, 2) : [$callback, $default];
     }
 
     /**
-     * Generate a URL friendly "slug" from a given string.
+     * Generate a more truly "random" alpha-numeric string.
      *
-     * @param string $title
-     * @param string $separator
-     * @param string $language
+     * @param int $length
+     *
+     * @return string
+     * @throws Exception
+     */
+    public static function random(int $length = 16)
+    {
+        $string = '';
+        while (($len = strlen($string)) < $length) {
+            $size = $length - $len;
+            $bytes = random_bytes($size);
+            $string .= substr(str_replace(['/', '+', '='], '', base64_encode($bytes)), 0, $size);
+        }
+
+        return $string;
+    }
+
+    /**
+     * Generate a more truly "random" bytes.
+     *
+     * @param int $length
+     *
+     * @return string
+     * @throws RuntimeException|Exception
+     */
+    public static function randomBytes(int $length = 16)
+    {
+        if (function_exists('random_bytes')) {
+            $bytes = random_bytes($length);
+        } elseif (function_exists('openssl_random_pseudo_bytes')) {
+            $bytes = openssl_random_pseudo_bytes($length, $strong);
+            if (false === $bytes || false === $strong) {
+                throw new RuntimeException('Unable to generate random string.');
+            }
+        } else {
+            throw new RuntimeException('OpenSSL extension is required for PHP 5 users.');
+        }
+
+        return $bytes;
+    }
+
+    /**
+     * Generate a "random" alpha-numeric string.
+     *
+     * Should not be considered sufficient for cryptography, etc.
+     *
+     * @param int $length
      *
      * @return string
      */
-    public static function slug($title, $separator = '-', $language = 'en')
+    public static function quickRandom(int $length = 16)
     {
-        $title = static::ascii($title, $language);
+        $pool = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        return substr(str_shuffle(str_repeat($pool, $length)), 0, $length);
+    }
+
+    /**
+     * Replace a given value in the string sequentially with an array.
+     *
+     * @param string $search
+     * @param array  $replace
+     * @param string $subject
+     *
+     * @return string
+     */
+    public static function replaceArray(string $search, array $replace, string $subject)
+    {
+        $segments = explode($search, $subject);
+        $result = array_shift($segments);
+        foreach ($segments as $segment) {
+            $result .= (array_shift($replace) ?? $search) . $segment;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Replace the first occurrence of a given value in the string.
+     *
+     * @param string $search
+     * @param string $replace
+     * @param string $subject
+     *
+     * @return string
+     */
+    public static function replaceFirst(string $search, string $replace, string $subject)
+    {
+        if ($search == '') {
+            return $subject;
+        }
+
+        $position = strpos($subject, $search);
+        if ($position !== false) {
+            return substr_replace($subject, $replace, $position, strlen($search));
+        }
+
+        return $subject;
+    }
+
+    /**
+     * Replace the last occurrence of a given value in the string.
+     *
+     * @param string $search
+     * @param string $replace
+     * @param string $subject
+     *
+     * @return string
+     */
+    public static function replaceLast(string $search, string $replace, string $subject)
+    {
+        $position = strrpos($subject, $search);
+        if ($position !== false) {
+            return substr_replace($subject, $replace, $position, strlen($search));
+        }
+
+        return $subject;
+    }
+
+    /**
+     * Begin a string with a single instance of a given value.
+     *
+     * @param string $value
+     * @param string $prefix
+     *
+     * @return string
+     */
+    public static function start(string $value, string $prefix)
+    {
+        $quoted = preg_quote($prefix, '/');
+        return $prefix . preg_replace('/^(?:' . $quoted . ')+/u', '', $value);
+    }
+
+    /**
+     * Convert the given string to upper-case.
+     *
+     * @param string $value
+     *
+     * @return string
+     */
+    public static function upper(string $value)
+    {
+        return mb_strtoupper($value, 'UTF-8');
+    }
+
+    /**
+     * Convert the given string to title case.
+     *
+     * @param string $value
+     *
+     * @return string
+     */
+    public static function title(string $value)
+    {
+        return mb_convert_case($value, MB_CASE_TITLE, 'UTF-8');
+    }
+
+    /**
+     * Generate a URL friendly "slug" from a given string.
+     *
+     * @param string      $title
+     * @param string      $separator
+     * @param string|null $language
+     *
+     * @return string
+     */
+    public static function slug(string $title, string $separator = '-', ?string $language = 'en')
+    {
+        $title = $language ? static::ascii($title, $language) : $title;
         // Convert all dashes/underscores into separator
-        $flip = $separator == '-' ? '_' : '-';
+        $flip = $separator === '-' ? '_' : '-';
         $title = preg_replace('![' . preg_quote($flip) . ']+!u', $separator, $title);
         // Replace @ with the word 'at'
         $title = str_replace('@', $separator . 'at' . $separator, $title);
         // Remove all characters that are not the separator, letters, numbers, or whitespace.
-        $title = preg_replace('![^' . preg_quote($separator) . '\pL\pN\s]+!u', '', mb_strtolower($title));
+        $title = preg_replace('![^' . preg_quote($separator) . '\pL\pN\s]+!u', '', static::lower($title));
         // Replace all separator characters and whitespace by a single separator
         $title = preg_replace('![' . preg_quote($separator) . '\s]+!u', $separator, $title);
 
@@ -483,56 +480,90 @@ class Str
     }
 
     /**
-     * Transliterate a UTF-8 value to ASCII.
+     * Convert a string to snake case.
      *
      * @param string $value
-     * @param string $language
+     * @param string $delimiter
      *
      * @return string
      */
-    public static function ascii($value, $language = 'en')
+    public static function snake(string $value, string $delimiter = '_')
     {
-        $languageSpecific = static::languageSpecificCharsArray($language);
-        if (!is_null($languageSpecific)) {
-            $value = str_replace($languageSpecific[0], $languageSpecific[1], $value);
+        $key = $value;
+        if (isset(static::$snakeCache[$key][$delimiter])) {
+            return static::$snakeCache[$key][$delimiter];
         }
 
-        foreach (static::charsArray() as $key => $val) {
-            $value = str_replace($val, $key, $value);
+        if (!ctype_lower($value)) {
+            $value = preg_replace('/\s+/u', '', ucwords($value));
+            $value = static::lower(preg_replace('/(.)(?=[A-Z])/u', '$1' . $delimiter, $value));
         }
 
-        return preg_replace('/[^\x20-\x7E]/u', '', $value);
+        return static::$snakeCache[$key][$delimiter] = $value;
     }
 
     /**
-     * Returns the language specific replacements for the ascii method.
+     * Determine if a given string starts with a given substring.
      *
-     * Note: Adapted from Stringy\Stringy.
+     * @param string       $haystack
+     * @param string|array $needles
      *
-     * @see https://github.com/danielstjules/Stringy/blob/3.1.0/LICENSE.txt
-     *
-     * @param string $language
-     *
-     * @return array|null
+     * @return bool
      */
-    protected static function languageSpecificCharsArray($language)
+    public static function startsWith(string $haystack, $needles)
     {
-        static $languageSpecific;
-
-        if (!isset($languageSpecific)) {
-            $languageSpecific = [
-                'bg' => [
-                    ['х', 'Х', 'щ', 'Щ', 'ъ', 'Ъ', 'ь', 'Ь'],
-                    ['h', 'H', 'sht', 'SHT', 'a', 'А', 'y', 'Y'],
-                ],
-                'de' => [
-                    ['ä', 'ö', 'ü', 'Ä', 'Ö', 'Ü'],
-                    ['ae', 'oe', 'ue', 'AE', 'OE', 'UE'],
-                ],
-            ];
+        foreach ((array)$needles as $needle) {
+            if ($needle !== '' && substr($haystack, 0, strlen($needle)) === (string)$needle) {
+                return true;
+            }
         }
 
-        return $languageSpecific[$language] ?? null;
+        return false;
+    }
+
+    /**
+     * Convert a value to studly caps case.
+     *
+     * @param string $value
+     *
+     * @return string
+     */
+    public static function studly(string $value)
+    {
+        $key = $value;
+        if (isset(static::$studlyCache[$key])) {
+            return static::$studlyCache[$key];
+        }
+
+        $value = ucwords(str_replace(['-', '_'], ' ', $value));
+
+        return static::$studlyCache[$key] = str_replace(' ', '', $value);
+    }
+
+    /**
+     * Returns the portion of string specified by the start and length parameters.
+     *
+     * @param string   $string
+     * @param int      $start
+     * @param int|null $length
+     *
+     * @return string
+     */
+    public static function substr(string $string, int $start, int $length = null)
+    {
+        return mb_substr($string, $start, $length, 'UTF-8');
+    }
+
+    /**
+     * Make a string's first character uppercase.
+     *
+     * @param string $string
+     *
+     * @return string
+     */
+    public static function ucfirst(string $string)
+    {
+        return static::upper(static::substr($string, 0, 1)) . static::substr($string, 1);
     }
 
     /**
@@ -563,38 +594,38 @@ class Str
             '7' => ['⁷', '₇', '۷', '７'],
             '8' => ['⁸', '₈', '۸', '８'],
             '9' => ['⁹', '₉', '۹', '９'],
-            'a' => ['à', 'á', 'ả', 'ã', 'ạ', 'ă', 'ắ', 'ằ', 'ẳ', 'ẵ', 'ặ', 'â', 'ấ', 'ầ', 'ẩ', 'ẫ', 'ậ', 'ā', 'ą', 'å', 'α', 'ά', 'ἀ', 'ἁ', 'ἂ', 'ἃ', 'ἄ', 'ἅ', 'ἆ', 'ἇ', 'ᾀ', 'ᾁ', 'ᾂ', 'ᾃ', 'ᾄ', 'ᾅ', 'ᾆ', 'ᾇ', 'ὰ', 'ά', 'ᾰ', 'ᾱ', 'ᾲ', 'ᾳ', 'ᾴ', 'ᾶ', 'ᾷ', 'а', 'أ', 'အ', 'ာ', 'ါ', 'ǻ', 'ǎ', 'ª', 'ა', 'अ', 'ا', 'ａ', 'ä'],
-            'b' => ['б', 'β', 'ب', 'ဗ', 'ბ', 'ｂ'],
+            'a' => ['à', 'á', 'ả', 'ã', 'ạ', 'ă', 'ắ', 'ằ', 'ẳ', 'ẵ', 'ặ', 'â', 'ấ', 'ầ', 'ẩ', 'ẫ', 'ậ', 'ā', 'ą', 'å', 'α', 'ά', 'ἀ', 'ἁ', 'ἂ', 'ἃ', 'ἄ', 'ἅ', 'ἆ', 'ἇ', 'ᾀ', 'ᾁ', 'ᾂ', 'ᾃ', 'ᾄ', 'ᾅ', 'ᾆ', 'ᾇ', 'ὰ', 'ά', 'ᾰ', 'ᾱ', 'ᾲ', 'ᾳ', 'ᾴ', 'ᾶ', 'ᾷ', 'а', 'أ', 'အ', 'ာ', 'ါ', 'ǻ', 'ǎ', 'ª', 'ა', 'अ', 'ا', 'ａ', 'ä', 'א'],
+            'b' => ['б', 'β', 'ب', 'ဗ', 'ბ', 'ｂ', 'ב'],
             'c' => ['ç', 'ć', 'č', 'ĉ', 'ċ', 'ｃ'],
-            'd' => ['ď', 'ð', 'đ', 'ƌ', 'ȡ', 'ɖ', 'ɗ', 'ᵭ', 'ᶁ', 'ᶑ', 'д', 'δ', 'د', 'ض', 'ဍ', 'ဒ', 'დ', 'ｄ'],
+            'd' => ['ď', 'ð', 'đ', 'ƌ', 'ȡ', 'ɖ', 'ɗ', 'ᵭ', 'ᶁ', 'ᶑ', 'д', 'δ', 'د', 'ض', 'ဍ', 'ဒ', 'დ', 'ｄ', 'ד'],
             'e' => ['é', 'è', 'ẻ', 'ẽ', 'ẹ', 'ê', 'ế', 'ề', 'ể', 'ễ', 'ệ', 'ë', 'ē', 'ę', 'ě', 'ĕ', 'ė', 'ε', 'έ', 'ἐ', 'ἑ', 'ἒ', 'ἓ', 'ἔ', 'ἕ', 'ὲ', 'έ', 'е', 'ё', 'э', 'є', 'ə', 'ဧ', 'ေ', 'ဲ', 'ე', 'ए', 'إ', 'ئ', 'ｅ'],
-            'f' => ['ф', 'φ', 'ف', 'ƒ', 'ფ', 'ｆ'],
-            'g' => ['ĝ', 'ğ', 'ġ', 'ģ', 'г', 'ґ', 'γ', 'ဂ', 'გ', 'گ', 'ｇ'],
-            'h' => ['ĥ', 'ħ', 'η', 'ή', 'ح', 'ه', 'ဟ', 'ှ', 'ჰ', 'ｈ'],
-            'i' => ['í', 'ì', 'ỉ', 'ĩ', 'ị', 'î', 'ï', 'ī', 'ĭ', 'į', 'ı', 'ι', 'ί', 'ϊ', 'ΐ', 'ἰ', 'ἱ', 'ἲ', 'ἳ', 'ἴ', 'ἵ', 'ἶ', 'ἷ', 'ὶ', 'ί', 'ῐ', 'ῑ', 'ῒ', 'ΐ', 'ῖ', 'ῗ', 'і', 'ї', 'и', 'ဣ', 'ိ', 'ီ', 'ည်', 'ǐ', 'ი', 'इ', 'ی', 'ｉ'],
+            'f' => ['ф', 'φ', 'ف', 'ƒ', 'ფ', 'ｆ', 'פ', 'ף'],
+            'g' => ['ĝ', 'ğ', 'ġ', 'ģ', 'г', 'ґ', 'γ', 'ဂ', 'გ', 'گ', 'ｇ', 'ג'],
+            'h' => ['ĥ', 'ħ', 'η', 'ή', 'ح', 'ه', 'ဟ', 'ှ', 'ჰ', 'ｈ', 'ה'],
+            'i' => ['í', 'ì', 'ỉ', 'ĩ', 'ị', 'î', 'ï', 'ī', 'ĭ', 'į', 'ı', 'ι', 'ί', 'ϊ', 'ΐ', 'ἰ', 'ἱ', 'ἲ', 'ἳ', 'ἴ', 'ἵ', 'ἶ', 'ἷ', 'ὶ', 'ί', 'ῐ', 'ῑ', 'ῒ', 'ΐ', 'ῖ', 'ῗ', 'і', 'ї', 'и', 'ဣ', 'ိ', 'ီ', 'ည်', 'ǐ', 'ი', 'इ', 'ی', 'ｉ', 'י'],
             'j' => ['ĵ', 'ј', 'Ј', 'ჯ', 'ج', 'ｊ'],
-            'k' => ['ķ', 'ĸ', 'к', 'κ', 'Ķ', 'ق', 'ك', 'က', 'კ', 'ქ', 'ک', 'ｋ'],
-            'l' => ['ł', 'ľ', 'ĺ', 'ļ', 'ŀ', 'л', 'λ', 'ل', 'လ', 'ლ', 'ｌ'],
-            'm' => ['м', 'μ', 'م', 'မ', 'მ', 'ｍ'],
-            'n' => ['ñ', 'ń', 'ň', 'ņ', 'ŉ', 'ŋ', 'ν', 'н', 'ن', 'န', 'ნ', 'ｎ'],
-            'o' => ['ó', 'ò', 'ỏ', 'õ', 'ọ', 'ô', 'ố', 'ồ', 'ổ', 'ỗ', 'ộ', 'ơ', 'ớ', 'ờ', 'ở', 'ỡ', 'ợ', 'ø', 'ō', 'ő', 'ŏ', 'ο', 'ὀ', 'ὁ', 'ὂ', 'ὃ', 'ὄ', 'ὅ', 'ὸ', 'ό', 'о', 'و', 'θ', 'ို', 'ǒ', 'ǿ', 'º', 'ო', 'ओ', 'ｏ', 'ö'],
-            'p' => ['п', 'π', 'ပ', 'პ', 'پ', 'ｐ'],
+            'k' => ['ķ', 'ĸ', 'к', 'κ', 'Ķ', 'ق', 'ك', 'က', 'კ', 'ქ', 'ک', 'ｋ', 'ק'],
+            'l' => ['ł', 'ľ', 'ĺ', 'ļ', 'ŀ', 'л', 'λ', 'ل', 'လ', 'ლ', 'ｌ', 'ל'],
+            'm' => ['м', 'μ', 'م', 'မ', 'მ', 'ｍ', 'מ', 'ם'],
+            'n' => ['ñ', 'ń', 'ň', 'ņ', 'ŉ', 'ŋ', 'ν', 'н', 'ن', 'န', 'ნ', 'ｎ', 'נ'],
+            'o' => ['ó', 'ò', 'ỏ', 'õ', 'ọ', 'ô', 'ố', 'ồ', 'ổ', 'ỗ', 'ộ', 'ơ', 'ớ', 'ờ', 'ở', 'ỡ', 'ợ', 'ø', 'ō', 'ő', 'ŏ', 'ο', 'ὀ', 'ὁ', 'ὂ', 'ὃ', 'ὄ', 'ὅ', 'ὸ', 'ό', 'о', 'و', 'ို', 'ǒ', 'ǿ', 'º', 'ო', 'ओ', 'ｏ', 'ö'],
+            'p' => ['п', 'π', 'ပ', 'პ', 'پ', 'ｐ', 'פ', 'ף'],
             'q' => ['ყ', 'ｑ'],
-            'r' => ['ŕ', 'ř', 'ŗ', 'р', 'ρ', 'ر', 'რ', 'ｒ'],
-            's' => ['ś', 'š', 'ş', 'с', 'σ', 'ș', 'ς', 'س', 'ص', 'စ', 'ſ', 'ს', 'ｓ'],
-            't' => ['ť', 'ţ', 'т', 'τ', 'ț', 'ت', 'ط', 'ဋ', 'တ', 'ŧ', 'თ', 'ტ', 'ｔ'],
+            'r' => ['ŕ', 'ř', 'ŗ', 'р', 'ρ', 'ر', 'რ', 'ｒ', 'ר'],
+            's' => ['ś', 'š', 'ş', 'с', 'σ', 'ș', 'ς', 'س', 'ص', 'စ', 'ſ', 'ს', 'ｓ', 'ס'],
+            't' => ['ť', 'ţ', 'т', 'τ', 'ț', 'ت', 'ط', 'ဋ', 'တ', 'ŧ', 'თ', 'ტ', 'ｔ', 'ת'],
             'u' => ['ú', 'ù', 'ủ', 'ũ', 'ụ', 'ư', 'ứ', 'ừ', 'ử', 'ữ', 'ự', 'û', 'ū', 'ů', 'ű', 'ŭ', 'ų', 'µ', 'у', 'ဉ', 'ု', 'ူ', 'ǔ', 'ǖ', 'ǘ', 'ǚ', 'ǜ', 'უ', 'उ', 'ｕ', 'ў', 'ü'],
-            'v' => ['в', 'ვ', 'ϐ', 'ｖ'],
+            'v' => ['в', 'ვ', 'ϐ', 'ｖ', 'ו'],
             'w' => ['ŵ', 'ω', 'ώ', 'ဝ', 'ွ', 'ｗ'],
             'x' => ['χ', 'ξ', 'ｘ'],
             'y' => ['ý', 'ỳ', 'ỷ', 'ỹ', 'ỵ', 'ÿ', 'ŷ', 'й', 'ы', 'υ', 'ϋ', 'ύ', 'ΰ', 'ي', 'ယ', 'ｙ'],
-            'z' => ['ź', 'ž', 'ż', 'з', 'ζ', 'ز', 'ဇ', 'ზ', 'ｚ'],
+            'z' => ['ź', 'ž', 'ż', 'з', 'ζ', 'ز', 'ဇ', 'ზ', 'ｚ', 'ז'],
             'aa' => ['ع', 'आ', 'آ'],
             'ae' => ['æ', 'ǽ'],
             'ai' => ['ऐ'],
             'ch' => ['ч', 'ჩ', 'ჭ', 'چ'],
             'dj' => ['ђ', 'đ'],
-            'dz' => ['џ', 'ძ'],
+            'dz' => ['џ', 'ძ', 'דז'],
             'ei' => ['ऍ'],
             'gh' => ['غ', 'ღ'],
             'ii' => ['ई'],
@@ -606,11 +637,11 @@ class Str
             'oi' => ['ऑ'],
             'oii' => ['ऒ'],
             'ps' => ['ψ'],
-            'sh' => ['ш', 'შ', 'ش'],
+            'sh' => ['ш', 'შ', 'ش', 'ש'],
             'shch' => ['щ'],
             'ss' => ['ß'],
             'sx' => ['ŝ'],
-            'th' => ['þ', 'ϑ', 'ث', 'ذ', 'ظ'],
+            'th' => ['þ', 'ϑ', 'θ', 'ث', 'ذ', 'ظ'],
             'ts' => ['ц', 'ც', 'წ'],
             'ue' => ['ü'],
             'uu' => ['ऊ'],
@@ -632,7 +663,7 @@ class Str
             'L' => ['Ĺ', 'Ł', 'Л', 'Λ', 'Ļ', 'Ľ', 'Ŀ', 'ल', 'Ｌ'],
             'M' => ['М', 'Μ', 'Ｍ'],
             'N' => ['Ń', 'Ñ', 'Ň', 'Ņ', 'Ŋ', 'Н', 'Ν', 'Ｎ'],
-            'O' => ['Ó', 'Ò', 'Ỏ', 'Õ', 'Ọ', 'Ô', 'Ố', 'Ồ', 'Ổ', 'Ỗ', 'Ộ', 'Ơ', 'Ớ', 'Ờ', 'Ở', 'Ỡ', 'Ợ', 'Ø', 'Ō', 'Ő', 'Ŏ', 'Ο', 'Ό', 'Ὀ', 'Ὁ', 'Ὂ', 'Ὃ', 'Ὄ', 'Ὅ', 'Ὸ', 'Ό', 'О', 'Θ', 'Ө', 'Ǒ', 'Ǿ', 'Ｏ', 'Ö'],
+            'O' => ['Ó', 'Ò', 'Ỏ', 'Õ', 'Ọ', 'Ô', 'Ố', 'Ồ', 'Ổ', 'Ỗ', 'Ộ', 'Ơ', 'Ớ', 'Ờ', 'Ở', 'Ỡ', 'Ợ', 'Ø', 'Ō', 'Ő', 'Ŏ', 'Ο', 'Ό', 'Ὀ', 'Ὁ', 'Ὂ', 'Ὃ', 'Ὄ', 'Ὅ', 'Ὸ', 'Ό', 'О', 'Ө', 'Ǒ', 'Ǿ', 'Ｏ', 'Ö'],
             'P' => ['П', 'Π', 'Ｐ'],
             'Q' => ['Ｑ'],
             'R' => ['Ř', 'Ŕ', 'Р', 'Ρ', 'Ŗ', 'Ｒ'],
@@ -657,15 +688,59 @@ class Str
             'Nj' => ['Њ'],
             'Oe' => ['Œ'],
             'Ps' => ['Ψ'],
-            'Sh' => ['Ш'],
+            'Sh' => ['Ш', 'ש'],
             'Shch' => ['Щ'],
             'Ss' => ['ẞ'],
-            'Th' => ['Þ'],
+            'Th' => ['Þ', 'Θ', 'ת'],
             'Ts' => ['Ц'],
-            'Ya' => ['Я'],
-            'Yu' => ['Ю'],
+            'Ya' => ['Я', 'יא'],
+            'Yu' => ['Ю', 'יו'],
             'Zh' => ['Ж'],
             ' ' => ["\xC2\xA0", "\xE2\x80\x80", "\xE2\x80\x81", "\xE2\x80\x82", "\xE2\x80\x83", "\xE2\x80\x84", "\xE2\x80\x85", "\xE2\x80\x86", "\xE2\x80\x87", "\xE2\x80\x88", "\xE2\x80\x89", "\xE2\x80\x8A", "\xE2\x80\xAF", "\xE2\x81\x9F", "\xE3\x80\x80", "\xEF\xBE\xA0"],
         ];
+    }
+
+    /**
+     * Returns the language specific replacements for the ascii method.
+     *
+     * Note: Adapted from Stringy\Stringy.
+     *
+     * @see https://github.com/danielstjules/Stringy/blob/3.1.0/LICENSE.txt
+     *
+     * @param string $language
+     *
+     * @return array|null
+     */
+    protected static function languageSpecificCharsArray(string $language)
+    {
+        static $languageSpecific;
+        if (!isset($languageSpecific)) {
+            $languageSpecific = [
+                'bg' => [
+                    ['х', 'Х', 'щ', 'Щ', 'ъ', 'Ъ', 'ь', 'Ь'],
+                    ['h', 'H', 'sht', 'SHT', 'a', 'А', 'y', 'Y'],
+                ],
+                'da' => [
+                    ['æ', 'ø', 'å', 'Æ', 'Ø', 'Å'],
+                    ['ae', 'oe', 'aa', 'Ae', 'Oe', 'Aa'],
+                ],
+                'de' => [
+                    ['ä', 'ö', 'ü', 'Ä', 'Ö', 'Ü'],
+                    ['ae', 'oe', 'ue', 'AE', 'OE', 'UE'],
+                ],
+                'he' => [
+                    ['א', 'ב', 'ג', 'ד', 'ה', 'ו'],
+                    ['ז', 'ח', 'ט', 'י', 'כ', 'ל'],
+                    ['מ', 'נ', 'ס', 'ע', 'פ', 'צ'],
+                    ['ק', 'ר', 'ש', 'ת', 'ן', 'ץ', 'ך', 'ם', 'ף'],
+                ],
+                'ro' => [
+                    ['ă', 'â', 'î', 'ș', 'ț', 'Ă', 'Â', 'Î', 'Ș', 'Ț'],
+                    ['a', 'a', 'i', 's', 't', 'A', 'A', 'I', 'S', 'T'],
+                ],
+            ];
+        }
+
+        return $languageSpecific[$language] ?? null;
     }
 }
