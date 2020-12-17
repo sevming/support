@@ -152,9 +152,9 @@ class Rsa
     public static function getPrivateKey($privateKey)
     {
         if (!Str::endsWith($privateKey, '.pem')) {
-            return "-----BEGIN PRIVATE KEY-----\n" .
+            return "-----BEGIN RSA PRIVATE KEY-----\n" .
                 wordwrap($privateKey, 64, "\n", true) .
-                "\n-----END PRIVATE KEY-----";
+                "\n-----END RSA PRIVATE KEY-----";
         }
 
         return openssl_pkey_get_private(self::readFile($privateKey));
