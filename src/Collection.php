@@ -110,6 +110,18 @@ class Collection implements ArrayAccess, Countable, JsonSerializable, Serializab
     }
 
     /**
+     * Merge the collection with the given items.
+     *
+     * @param mixed $items
+     *
+     * @return static
+     */
+    public function merge($items)
+    {
+        return new static(array_merge($this->items, $items));
+    }
+
+    /**
      * @inheritdoc
      *
      * @param mixed $offset
