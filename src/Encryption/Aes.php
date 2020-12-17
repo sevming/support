@@ -6,6 +6,9 @@ use \InvalidArgumentException;
 
 class Aes
 {
+    public const PAD_PKCS7 = 'pkcs7';
+    public const BLOCK_SIZE = 16;
+
     /**
      * Encrypt the given plaintext.
      *
@@ -23,8 +26,8 @@ class Aes
         string $key,
         ?string $iv = null,
         int $options = OPENSSL_RAW_DATA,
-        string $pad = 'pkcs7',
-        ?string $code = 'base64'
+        string $pad = self::PAD_PKCS7,
+        ?string $code = 'hex'
     ) {
         self::validateKey($key);
         self::validateIv($iv);
@@ -51,8 +54,8 @@ class Aes
         string $key,
         ?string $iv = null,
         int $options = OPENSSL_RAW_DATA,
-        string $pad = 'pkcs7',
-        ?string $code = 'base64'
+        string $pad = self::PAD_PKCS7,
+        ?string $code = 'hex'
     ) {
         self::validateKey($key);
         self::validateIv($iv);
@@ -161,7 +164,7 @@ class Aes
      *
      * @return string
      */
-    public static function addPkcs7Pad(string $plaintext, int $blockSize = 16)
+    public static function addPkcs7Pad(string $plaintext, int $blockSize = self::BLOCK_SIZE)
     {
         $padding = $blockSize - (strlen($plaintext) % $blockSize);
         return $plaintext . str_repeat(chr($padding), $padding);
@@ -169,20 +172,18 @@ class Aes
 
     /**
      * @param string $plaintext
+     * @param int    $blockSize
      *
      * @return string
      */
-    public static function unPkcs7Pad(string $plaintext)
+    public static function unPkcs7Pad(string $plaintext, int $blockSize = self::BLOCK_SIZE)
     {
-        if (!empty($plaintext)) {
-            $lastA = ord(substr($plaintext, -1));
-            $lastC = chr($lastA);
-            if (preg_match("/{$lastC}{{$lastA}}$/", $plaintext)) {
-                return substr($plaintext, 0, strlen($plaintext) - $lastA);
-            }
+        $pad = ord(substr($plaintext, -1));
+        if ($pad < 1 || $pad > $blockSize) {
+            $pad = 0;
         }
 
-        return '';
+        return substr($plaintext, 0, strlen($plaintext) - $pad);
     }
 
     /**
